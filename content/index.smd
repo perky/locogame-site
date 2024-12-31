@@ -24,14 +24,18 @@ In short, I make games and enjoy doing so. So, if you'd like to get in touch you
 I joined Nequinox Studios in 2021 as a Technical Designer and within a year was promoted to Senior Technical Designer. The company primarily focuses on co-development with other studios, but I joined their internal IP team. 
 
 ### Turbo Tanks
-[]($video.siteAsset('turbotanksloop.mp4').loop(true).controls(true))
+```=html
+<video loop controls src="/turbotanksloop.mp4#t=0.001" preload="metadata"></video>
+```
 
 Turbo Tanks was a project we worked on for six months to make a vertical slice. There was only a small team of about five people working on this project so we needed to wear multiple hats. I was both a Game Designer and Senior Technical Designer (I also edited the gameplay trailer). My main responsibility were the three Cs – Character, Controls, and Camera. I designed and implemented the tank pawn, movement controller, and camera system. These all needed to work together to create a sense of speed and weight while also being able to drift in a satisfying way. 
 
 I was also responsible for designing and implementing many of the power-ups. The majority of project was implemented with Blueprints, however I also identified some key areas via profiling a refactored them into C++ code.
 
 ### Shrapnel Level Editor
-[]($video.siteAsset('shrapnelloop.mp4').loop(true).controls(true))
+```=html
+<video loop controls src="/shrapnelloop.mp4#t=0.001" preload="metadata"></video>
+```
 
 Shrapnel is an extraction shooter and Nequinox Studios was contracted to design and implement a player-facing level editor that would ship with the game. I was involved with writing the initial technical design document and then implemented various systems such as gizmos, asset spawning and placement, grouping, and screen-space effects.
 
@@ -48,7 +52,9 @@ I joined Fabrik Games as a Technical Designer in 2019 to work on The Persistence
 The Locogame name originally refers to my own company I set up for contract work. I ended up working on a fascinating variety of projects including short films, healthcare, educational games, and mobile games. I also developed my own mobile puzzle game: SEN.
 
 ### SEN: Seven Eight Nine
-[]($video.siteAsset('sentrailer.mp4').loop(false).controls(true).attrs('fullwidthvid'))
+```=html
+<video loop controls src="/sentrailer.mp4#t=0.001" preload="metadata"></video>
+```
 
 A minimalistic puzzle game that I designed and developed in Unity in collaboration with Francesco Tammacaro who designed the UI and composed the soundtrack. The game was picked up by Indie Champions (nee All 4 Games) and released on iOS, Android, Nintendo Switch, and Steam in 2021.
 

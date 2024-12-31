@@ -9,11 +9,12 @@ pub fn build(b: *std.Build) !void {
         .content_dir_path = "content",
         .assets_dir_path = "assets",
         .static_assets = &.{
-            "CNAME",
             // This asset is referenced in some inlined HTML in markdown
             // which Zine is not yet able to analyze so as a temporary
             // hack we mark it as a static asset.
-            "vscode-autoformatting.mp4", // TODO: remove.
+            "sentrailer.mp4",
+            "shrapnelloop.mp4",
+            "turbotanksloop.mp4",
 
             // Fonts referenced in CSS files // TODO: filter.
             "fonts/BebasNeue-Regular.ttf",
