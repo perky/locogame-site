@@ -1,32 +1,33 @@
 <extend template="base.shtml">
-<title id="title" :text="$page.title"></title>
-<head id="head"></head>
-<div id="content">
+<head id="head">
   <style>
     h4.overtitle {
        padding: 0.25rem;
-	   margin-top: 1rem;
-	   margin-bottom: 0.25rem;
-	   font-family: "Poppins", sans-serif;
+	    margin-top: 1rem;
+	    margin-bottom: 0.25rem;
+	    font-family: "Poppins", sans-serif;
   	   font-weight: 600;
        text-align: left;
        transform: skewY(-3deg);
        font-size: 1rem;
-	   background-color: var(--heading-color);
+	     background-color: var(--heading-color);
        /*border-bottom: 1px dashed var(--heading-color);*/
     }
 
     h1.title {
-		margin-top: 0rem;
-		transform: skewY(-3deg);
+		  margin-top: 0rem;
+		  transform: skewY(-3deg);
     }	
 
-	p:has(img) {
-		display: flex;
-		justify-content: center; /* align horizontal */
-		align-items: center; /* align vertical */
-	}
+    p:has(img) {
+      display: flex;
+      justify-content: center; /* align horizontal */
+      align-items: center; /* align vertical */
+    }
   </style>
+</head>
+<title id="title" :text="$page.title"></title>
+<div id="content">
   <h4 class="overtitle">
     <span :text="$page.date.format('Jan 02, 2006')"></span>
     •
