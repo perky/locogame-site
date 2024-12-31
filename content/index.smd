@@ -1,0 +1,95 @@
+---
+.title = "Home",
+.date = @date("2024-12-22T00:00:00"),
+.author = "Luke Perkin",
+.layout = "index.shtml",
+.draft = false,
+.tags = [],
+---
+
+## About Me
+For over eight years I’ve been working professionally in the Games Industry, holding positions such as a Senior Technical Designer, Game Designer, and Gameplay Programmer. I specialise in rapid prototyping with Unreal Engine, typically with a mix of Blueprints and C++, but also have plenty of experience with Unity, some other lesser known tools such as [Love2D](https://love2d.org) and [Raylib](https://www.raylib.com/), and good old fashioned pen and paper prototypes. 
+
+I am currently a Senior Technical Designer at Nequinox Studios, prototyping our own internal IP. Before that I was a Technical Designer at Fabrik Games working on a PS4 title, and before this, a freelance contractor working with various studios across the UK and America.
+
+Along side my current position, I’m also a Games Design tutor at [Futureworks University](https://futureworks.ac.uk/). I mentor my students, giving them game design advice with how to approach research and prototyping, production and organisation, as well as assistance with Unreal Engine and Blueprints.
+
+But it’s not all about video games. In 2014, I founded a monthly meet-up group in Manchester called [Northwest Playtesters](https://northwestplaytesters.com) for professional and hobbyist board game designers.
+
+I offer a unique perspective to game development, before getting into the games industry I worked as a cinematographer, focus puller, and video editor on music videos, concerts, and feature films. Working in large teams with incredibly tight time restrictions and also small independent teams where we all have to wear many hats. I brought these skills with me into the games industry with an appreciation for storytelling and project planning.
+
+In short, I make games and enjoy doing so. So, if you'd like to get in touch you can email me at [luke@locogame.co.uk](mailto:luke@locogame.co.uk).
+
+## Nequinox Studios
+I joined Nequinox Studios in 2021 as a Technical Designer and within a year was promoted to Senior Technical Designer. The company primarily focuses on co-development with other studios, but I joined their internal IP team. 
+
+### Turbo Tanks
+[]($video.siteAsset('turbotanksloop.mp4').loop(true).controls(true))
+
+Turbo Tanks was a project we worked on for six months to make a vertical slice. There was only a small team of about five people working on this project so we needed to wear multiple hats. I was both a Game Designer and Senior Technical Designer (I also edited the gameplay trailer). My main responsibility were the three Cs – Character, Controls, and Camera. I designed and implemented the tank pawn, movement controller, and camera system. These all needed to work together to create a sense of speed and weight while also being able to drift in a satisfying way. 
+
+I was also responsible for designing and implementing many of the power-ups. The majority of project was implemented with Blueprints, however I also identified some key areas via profiling a refactored them into C++ code.
+
+### Shrapnel Level Editor
+[]($video.siteAsset('shrapnelloop.mp4').loop(true).controls(true))
+
+Shrapnel is an extraction shooter and Nequinox Studios was contracted to design and implement a player-facing level editor that would ship with the game. I was involved with writing the initial technical design document and then implemented various systems such as gizmos, asset spawning and placement, grouping, and screen-space effects.
+
+## Fabrik Games
+I joined Fabrik Games as a Technical Designer in 2019 to work on The Persistence – a sci-fi horror game.
+### The Persistence
+```=html
+<iframe width="600" height="300" src="https://www.youtube.com/embed/9YKQFPT5JQY?si=GCD8NS5WEDBD8RGp" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+```
+
+[The Persistence](https://www.playstation.com/en-gb/games/the-persistence/) is a PSVR sci-fi horror game. We worked alongside Firesprite to port the game from VR to non-VR PS4, PC, and Xbox. This involved redesigning the locomotion and camera controls as well as a major overhaul of the HUD and various UI screens.
+
+## Locogame
+The Locogame name originally refers to my own company I set up for contract work. I ended up working on a fascinating variety of projects including short films, healthcare, educational games, and mobile games. I also developed my own mobile puzzle game: SEN.
+
+### SEN: Seven Eight Nine
+[]($video.siteAsset('sentrailer.mp4').loop(false).controls(true).attrs('fullwidthvid'))
+
+A minimalistic puzzle game that I designed and developed in Unity in collaboration with Francesco Tammacaro who designed the UI and composed the soundtrack. The game was picked up by Indie Champions (nee All 4 Games) and released on iOS, Android, Nintendo Switch, and Steam in 2021.
+
+### Glimpse
+```=html
+<iframe width="600" height="300" src="https://www.youtube.com/embed/bJ0SCjswFbw?si=vaGBaj6NktVyYEP-" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+```
+
+Glimpse is an animated short with characters voiced by Lucy Boynton and Taron Egerton. The short is experienced in VR and was put together in Unreal Engine. I was contracted on the project as an Unreal specialist to help implement the interactive moments.
+
+### Wordhunters
+```=html
+<iframe width="600" height="300" src="https://www.youtube.com/embed/gvIrQihMNbY?si=t5R5tKsvXVGmerB0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+```
+
+A partylink game for the PS4. I was contracted by the producer, Simon Smith, for the initial conceptual stage. I assisted with creating a pen and paper prototype, creating a game design document, and assisting with creating the pitch deck and pitching the concept to Sony.
+
+## Side Quests
+Here is everything else I do. Well not *everything* else, just the interesting bits.
+
+### Northwest Playtesters
+In 2014 I founded [Northwest Playtesters](https://northwestplaytesters.com), a monthly meetup group for indie game developers making board games and video games. This community is still going strong today and with some great success stories too, such as [Ingenium Games](https://ingeniumgames.com/)' 'WordStacker' and 'Would Like To Meet' being playtested extensively at the meetup. Occasionally, I organise all-day events such as one in 2018 that 100 attendees and was sponsored by BAFTA. Our most recent all-day event was in 2024 for our ten year anniversary and was kindly sponsored by Nequinox Studios.
+
+### YouTube
+```=html
+<iframe width="600" height="300" src="https://www.youtube.com/embed/p1VQuMziTek?si=fABnjRFwx1whyl7E" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+```
+Occasionally I create educational videos on YouTube. The most popular series so far has been [Programming a Synthesiser in C](https://www.youtube.com/playlist?list=PLJak15SQAGJPm438EBNkHE-olvaTc8rHv) and [Advent of Code in Zig](https://www.youtube.com/playlist?list=PLJak15SQAGJPYpyaPM9JbPfxR6jHy_b9a).
+
+### Wired
+```=html
+<iframe width="600" height="300" src="https://www.youtube.com/embed/cNXu4j_bd0A?si=EVEHUBgkn4Vb2XDV" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+```
+
+Wired was a lockdown side project where you could create your own modular sythesiser in VR. Wired was created in Unreal Engine. This project taught me a lot about Digital Signal Processing, the Unreal audio thread, and multithreaded code.
+
+### Game Jams
+Here are some of my best game jams:
+- [Dunkegg](https://perky.itch.io/dunkegg)
+- [End of the Line](https://web.archive.org/web/20220122082349/http://ludumdare.com/compo/ludum-dare-32/?action=preview&uid=25259)
+- [Mini Minotaur](https://web.archive.org/web/20220122134637/http://ludumdare.com/compo/ludum-dare-31/?action=preview&uid=25259)
+># [Offline Content]($block.attrs('callout'))
+>Ludum Dare took it's compo site down which is where many of my old game jam entries are.
+>You can still find them on archive.org but images and downloads may be missing.

@@ -1,0 +1,625 @@
+---
+.title = "Digital Card Game - Part 3",
+.date = @date("2018-08-20T00:00:00"),
+.author = "Luke Perkin",
+.layout = "blog-page.shtml",
+.draft = false,
+.tags = [],
+---
+
+[]($section.id('intro'))
+This is part 3 to a series on making a digital card game in javascript. In this post I will be implementing **triggered effects**. I think attempting to replicate the 'Knife Juggler' from Hearthstone would be a good start.
+
+- [Part 1](/blog/digital-card-game-p01/)
+- [Part 2](/blog/digital-card-game-p02/)
+- **Part 3**
+
+[]($section.id('rest'))
+## 1. Triggered Routines
+
+Programs will have *Routines* that respond to certain events. In this case, a *playCard* event. The response should be able to trigger multiple effects and each of those effects might initiate a response from another Routine.
+
+I'm going to think about the data first. There is a JSON file containing all the card prototypes, this should also contain descriptions of all the Routines on a card and their responses.
+
+```json
+{
+    "id": "bit-swizzler-01",
+    "title": "Bit Swizzler v1.0",
+    "category": "program",
+    "cpu_cost": 2,
+    "memory_cost": 1,
+    "strength": 2,
+    "routines": [
+        {
+            "type": "triggered",
+            "text": "if (selfPlayProgram)\n  damageEnemyProgram(1)",
+            "event": {
+                "id": "play-card",
+            	"category": "program",
+                "player": "self"
+            },
+            "response": [
+                {
+                    "id": "deal-damage",
+                    "damage": 1,
+                    "target": {
+                        "category": "program",
+                        "zone": "field",
+                        "player": "enemy"
+                    }
+                }
+            ]
+        }
+    ]
+}
+```
+
+There is quite a lot going on in that JSON file now. I've replaced the `attacks` array with `routines`. I'll separate attacks and triggers via their type. The event field specifies which event triggers the Routine. I also need to specify that it triggers only when your own player plays a program. The `responses` array can contain a list of effects to perform, with an object defining who to target the effect at. For this implementation, if there are multiple valid targets, we'll pick randomly. The `text` field is what to show when the card is rendered. Seeing as this is a cyberpunk game after all, I figured it be cute if the routines read as code.
+
+I'm going to have to refactor my code to account for the change from `attacks` to `routines`. A bit of Find & Replace will do the trick.
+
+I'll also add to the `GameRender` class to render triggered routines. While I'm there, I might as well make the cards look a little bit prettier. I downloaded some icons from [game-icons.net](https://game-icons.net/).
+
+![](/img/1534762317591.png)
+
+Time to implement to function that will trigger these *Triggered Routines*.
+
+```javascript
+// file: src/GameLogic.js
+function triggerEvent(eventId, payload, helper) {
+    // First of all, iterate through all cards in the current player's
+    // field to see if they respond.
+    let {currentPlayer, playerId} = helper.getCurrentPlayer();
+    let {opponentPlayer, opponentPlayerId} = helper.getOpponentPlayer();
+    // Find all valid triggers in the player's field.
+    let triggers = currentPlayer.field.map(cardId => {
+        let card = helper.state.cards[cardId];
+        return card.proto.routines.filter(routine => {
+            return routine.type === "triggered" && routine.event.id === eventId;
+        });
+    });
+    // Flatten the triggers array. Notice how the above map function returns
+    // nested arrays: triggers = [[...], [...], [...]]
+    // The .reduce function will flatten this to: [..., ..., ...]
+    triggers = triggers.reduce((arr, triggers) => arr.concat(triggers), []);
+    // Filter out trigger that don't match it's event parameters.
+    triggers = triggers.filter(trigger => {
+        if (eventId === 'play-card') {
+            let isSameCategory = trigger.event.category === payload.category;
+            if (trigger.event.player === "self") {
+                return playerId === payload.playerId && isSameCategory;
+            } else if (trigger.event.player === "enemy") {
+                return opponentPlayerId === payload.playerId && isSameCategory;
+            } else {
+                return isSameCategory;
+            }
+        }
+    });
+    // Collect all the responses from our triggers into a single array.
+    let responses = triggers.reduce((arr, trigger) => arr.concat(trigger.response), []);
+    // For now, let's just log our responses.
+    console.log(responses);
+}
+```
+
+I've used a JavaScript function in there I haven't used before, called `reduce`. If you are unfamiliar with what reduce does, [read about it here](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce).
+
+Note that I could have written this function with just nested for loops, in fact I will show you what that looks like.
+
+```javascript
+// file: src/GameLogic.js
+function triggerEvent_FORLOOPS(eventId, payload, helper) {
+    // First of all, iterate through all cards in the current player's
+    // field to see if they respond.
+    let {currentPlayer, playerId} = helper.getCurrentPlayer();
+    let {opponentPlayer, opponentPlayerId} = helper.getOpponentPlayer();
+    let responses = [];
+    // Loop through all cards in the player's field.
+    for (let fieldIndex = 0; fieldIndex < currentPlayer.field.length; fieldIndex++) {
+        const cardId = currentPlayer.field[fieldIndex];
+        const card = helper.state.cards[cardId];
+        // Loop through all of the card's routines.
+        for (let routineIndex = 0; routineIndex < card.proto.routines.length; routineIndex++) {
+            const routine = card.proto.routines[routineIndex];
+            const isCorrectType = routine.type === "triggered" && routine.event.id === eventId;
+            // Check the trigger matches this event's id.
+            if (isCorrectType) {
+                let isTriggerValid = false;
+                // Check the trigger's event parameters match.
+                if (eventId === 'play-card') {
+                    let isSameCategory = routine.event.category === payload.category;
+                    if (routine.event.player === "self") {
+                        isTriggerValid = playerId === payload.playerId && isSameCategory;
+                    } else if (routine.event.player === "enemy") {
+                        isTriggerValid = opponentPlayerId === payload.playerId && isSameCategory;
+                    } else {
+                        isTriggerValid = isSameCategory;
+                    }
+                }
+                if (isTriggerValid) {
+                    // Loop through all the trigger's reponses and push them to the array.
+                    for (let responseIndex = 0; responseIndex < routine.response.length; responseIndex++) {
+                        responses.push(routine.response[responseIndex]);
+                    }
+                }
+            }
+        }
+    }
+    // For now, let's just log our responses.
+    console.log(responses);
+}
+```
+
+I think both approaches are valid. I personally prefer using `.map`, `.filter` and `.reduce` as I like to make use of the tools the language gives me.
+
+### 1.1 Responses
+
+The `triggerEffect()` functions collects an array of responses. The next step would be to perform those responses, dealing damage, drawing new cards, etc.
+
+```javascript
+// file: src/GameLogic.js
+function triggerEvent(/* ... */) {
+	// ...
+    // Execute each response.
+    let state = currentState;
+    responses.forEach(r => {
+        if (r.id === "deal-damage") {
+            // Find a target.
+            let candidates = [];
+            if (r.target.player === "enemy" || r.target.player === "both") {
+                const _candidates = opponentPlayer[r.target.zone]
+                    .filter(cardId => state.cards[cardId].proto.category === r.target.category)
+                    .map(id => {
+                        return {id, playerId: opponentPlayerId, zone: r.target.zone};
+                    });
+                candidates = [...candidates, ..._candidates];
+            } else if (r.target.player === "self" || r.target.player === "both") {
+                const _candidates = currentPlayer[r.target.zone]
+                    .filter(cardId => state.cards[cardId].proto.category === r.target.category)
+                    .map(id => {
+                        return {id, playerId, zone: r.target.zone};
+                    });
+                candidates = [...candidates, ..._candidates];
+            }
+            // If we have multiple valid targets, pick one at random.
+            const target = helper.pickRandom(candidates);
+            if (target) {
+                // The dealDamage function will also trigger an event.
+                state = dealDamage(state, ctx, target.playerId, target.zone, target.id, r.damage);
+            }
+        }
+    });
+    return state;
+}
+```
+
+I have added a dealDamage function, which will reduce the strength of a card, trash the card if the strength reaches 0 and then trigger a `deal-damage` event.
+
+```javascript
+// file: src/GameLogic.js
+function dealDamage(currentState, ctx, playerId, zone, cardId, damage) {
+    let state = currentState;
+    const { getProp } = GameHelper;
+    const currentCard = state.cards[cardId];
+    const strength = getProp(currentCard, "strength") - damage;
+    const card = {...currentCard, strength};
+    const cards = ImmutableArray.set(state.cards, card, cardId);
+    // Trash if card destroyed.
+    if (strength <= 0) {
+        console.log('trashing card', playerId, zone, cardId);
+        state = trashCard(state, ctx, playerId, zone, cardId);
+    }
+    // Notice how we call triggerEvent(). This dealDamage() was called from triggerEvent.
+    // The recursion leads to complex behaviour.
+    state = triggerEvent(state, ctx, 'deal-damage', {cardId, playerId, zone});
+    return {...state, cards};
+}
+```
+
+Let's test it out!
+
+![](/img/dcg04.gif)
+
+### 1.2 A Little Animation
+
+Without any fancy animations it can be tricky to see which values are changing. React only re-renders components if they have been changed. I can take advantage of that and highlight a statistic when it changes.
+
+```javascript
+class Stat extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            statClass: 'stat'
+        };
+    }
+	
+    // This is called whenever React detects changes in the props
+    // or state.
+    componentDidUpdate(prevProps) {
+        if (prevProps.value !== this.props.value) {
+            // Add a highlight class.
+            this.setState({
+                statClass: 'stat highlight'
+            });
+            // Remove the highlight class after 2 seconds.
+            setTimeout(() => {
+                this.setState({
+                    statClass: 'stat'
+                });
+            }, 2000);
+        }
+    }
+
+    render() {
+        let {icon, value} = this.props;
+        let statClass = []
+        return <span>
+            <img src={"/icon/"+icon+".png"} width="32" className="icon"/>
+            <span className={this.state.statClass}>{value}</span>
+        </span>;
+    }
+}
+```
+
+![](/img/dcg05.gif)
+
+## 2. Card Locations
+
+I am finding it restricting having to pass the location of cards as arguments to functions. Really the card object itself should know it's own location. I'll have to tweak the initial setup and other moves to keep the location up to date.
+
+Update the initial state:
+
+```javascript
+// file: src/GameLogic.js
+function initialState(ctx, state) {
+    // ...
+    const zones = ['deck', 'hand', 'field', 'trash'];
+    const players = ['player_0', 'player_1'];
+    players.forEach(playerId => {
+        zones.forEach(zone => {
+            initialState[playerId][zone].forEach(cardId => {
+                cards[cardId].location = {playerId, zone};
+            });
+        });
+    });
+}
+```
+
+The location of a card is going be changing rather frequently, so I'll add a helper function.
+
+```javascript
+// file: src/GameHelper.js
+updateCardLocation(cardId, location) {
+    let currentCard = this.state.cards[cardId];
+    let card = {...currentCard, location};
+    let cards = ImmutableArray.set(this.state.cards, card, cardId);
+    this.updateState({...this.state, cards});
+}
+```
+
+Now I can call that helper function for each of our moves.
+
+```javascript
+// file: src/GameLogic.js
+function drawCard(/* ... */) {
+    // ...
+    // Add the last card in the player's deck to their hand.
+    let deckIndex = currentPlayer.deck.length - 1;
+    let cardId = currentPlayer.deck[deckIndex];
+    let hand = ImmutableArray.append(currentPlayer.hand, cardId);
+    helper.updateCardLocation(cardId, {playerId, zone: 'hand'});
+    // ...
+}
+
+function playCard(/* ... */)) {
+    // ...
+    if (/* ... */) {
+        // Add the card to the player's field.
+        let field = ImmutableArray.append(currentPlayer.field, currentPlayer.hand[handIndex]);
+    	helper.updateCardLocation(currentPlayer.hand[handIndex], {playerId, zone: 'field'});
+        // ...
+    }
+	// ...
+}
+
+// The arguments for trashCard become simpler.
+function trashCard(currentState, ctx, cardId) {
+    const helper = new GameHelper(currentState, ctx);
+    const card = currentState.cards[cardId];
+    const playerId = card.location.playerId;
+    const player = currentState[playerId];
+    const currentZoneId = card.location.zone;
+    const currentZone = player[currentZoneId];
+    const isCardValid = card && currentZone.includes(cardId);
+    if (isCardValid) {
+        // Add the card to the player's trash.
+        const trash = ImmutableArray.append(player.trash, cardId);
+        helper.updateCardLocation(cardId, {playerId, zone: 'trash'});
+        // Remove the card from it's current location.
+        let currentZoneIndex = currentZone.indexOf(cardId);
+        const zone = ImmutableArray.removeAt(currentZone, currentZoneIndex);
+        return helper.constructStateForPlayer(playerId, {trash, [currentZoneId]: zone});
+    }
+    return currentState;
+}
+```
+
+The `triggerEvent` function becomes simpler too.
+
+```javascript
+function triggerEvent(/* ... */) {
+    // ...
+    responses.forEach(r => {
+        if (r.id === "deal-damage") {
+            // Find a target.
+            let candidates = [];
+            if (r.target.player === "enemy" || r.target.player === "both") {
+                const _candidates = opponentPlayer[r.target.zone]
+                    .filter(cardId => state.cards[cardId].proto.category === r.target.category);
+                candidates = [...candidates, ..._candidates];
+            } else if (r.target.player === "self" || r.target.player === "both") {
+                const _candidates = currentPlayer[r.target.zone]
+                    .filter(cardId => state.cards[cardId].proto.category === r.target.category);
+                candidates = [...candidates, ..._candidates];
+            }
+            // If we have multiple valid targets, pick one at random.
+            const target = helper.pickRandom(candidates);
+            if (target) {   
+                state = dealDamage(state, ctx, target, r.damage);
+            }
+        }
+    });
+    // ...
+}
+```
+
+## 3. More Triggers!
+
+I want to add another type of **Triggered Routine** so we start to see interesting combos.
+
+**Beware the card game combos! [https://www.youtube.com/watch?v=LFoMxPgutq0](https://www.youtube.com/watch?v=LFoMxPgutq0)**
+
+We already have a program that deals damage in response to an event, so let's add card that responds to damage. A similar card in Hearthstone would be 'Acolyte of Pain'.
+
+```json
+{
+    "id": "acolyte-of-bytes-01",
+    "title": "Acolyte of Bytes v1.0",
+    "category": "program",
+    "cpu_cost": 3,
+    "memory_cost": 1,
+    "strength": 3,
+    "routines": [
+        {
+            "type": "triggered",
+            "text": "if (takeDamage)\n-> drawCard()",
+            "event": {
+                "id": "deal-damage",
+                "instigator": "any",
+                "target": "self"
+            },
+            "response": [
+                {
+                    "id": "draw-card",
+                    "target": {
+                        "player": "self"
+                    }
+                }
+            ]
+        }
+    ]
+}
+```
+
+It's a terrible name, I know. I still love it though.
+
+I can predict that the `triggerEvent` function is going to get huge if we keep adding different types of events. It's time to start compartmentalising them.
+
+```javascript
+// file: src/GameEvents.js
+import {GameHelper} from './GameHelper';
+
+const GameEvents = {
+    'deal-damage': (state, ctx, GameLogic, {id, target, damage}) => {
+        let helper = new GameHelper(state, ctx);
+        let {currentPlayer} = helper.getCurrentPlayer();
+        let {opponentPlayer} = helper.getOpponentPlayer();
+        // Find a target.
+        let candidates = [];
+        if (target.player === "enemy" || target.player === "both") {
+            const _candidates = opponentPlayer[target.zone]
+                .filter(cardId => state.cards[cardId].proto.category === target.category);
+            candidates = [...candidates, ..._candidates];
+        } else if (target.player === "self" || target.player === "both") {
+            const _candidates = currentPlayer[target.zone]
+                .filter(cardId => state.cards[cardId].proto.category === target.category);
+            candidates = [...candidates, ..._candidates];
+        }
+        // If we have multiple valid targets, pick one at random.
+        const targetCardId = helper.pickRandom(candidates);
+        if (targetCardId) {
+            return GameLogic.dealDamage(state, ctx, targetCardId, damage);
+        }
+    }
+};
+
+const GameEventValidator = {
+    'play-card': (state, ctx, trigger, payload) => {
+        let helper = new GameHelper(state, ctx);
+        let {playerId} = helper.getCurrentPlayer();
+        let {opponentPlayerId} = helper.getOpponentPlayer();
+        let isSameCategory = trigger.event.category === payload.category;
+        if (trigger.event.player === "self") {
+            return playerId === payload.playerId && isSameCategory;
+        } else if (trigger.event.player === "enemy") {
+            return opponentPlayerId === payload.playerId && isSameCategory;
+        } else {
+            return isSameCategory;
+        }
+    }
+};
+
+export {GameEvents, GameEventValidator};
+```
+
+The `GameLogic` argument contains all our functions from `GameLogic.js`, we pass it as an argument so we don't end up with circular imports.
+
+The `triggerEvent()` function now uses GameEvents.
+
+```javascript
+// file: src/GameLogic.js
+// ...
+// Filter out trigger that don't match it's event parameters.
+triggers = triggers.filter(trigger => {
+    return GameEventValidator[eventId](helper, trigger, payload);
+});
+// ...
+responses.forEach(response => {
+    let resultState = GameEvents[response.id](GameLogic, helper, response);
+    if (resultState) {
+        state = resultState;
+    }
+});
+// ...
+```
+
+I will add the `deal-damage` validator and `draw-card` event.
+
+```javascript
+// file: src/GameEvents.js
+// GameEvents
+'draw-card': (state, ctx, GameLogic, {target}) => {
+    if (target.player === "self") {
+        return GameLogic.drawCard(state, ctx)
+    } else if (target.player === "enemy") {
+        // TODO: handle enemy card draw.
+    }
+}
+
+// GameEventValidator
+'deal-damage': (state, ctx, trigger, payload) => {
+    if (trigger.event.target === 'self') {
+        return payload.cardId === trigger.cardId;
+    }
+    // TODO: handle additional targets.
+}
+```
+
+Note that I use `trigger.cardId`, we never stored the card's id on a routine, so let me fix that.
+
+```javascript
+// file: src/GameLogic.js
+// ...
+// Find all valid triggers in the player's field.
+let triggers = currentPlayer.field.map(cardId => {
+    let card = currentState.cards[cardId];
+    return card.proto.routines.filter(routine => {
+        return routine.type === "triggered" && routine.event.id === eventId;
+    }).map(routine => {
+        return {...routine, cardId};
+    });
+});
+// ...
+```
+
+Oh yeah. I forgot I'm only finding valid triggers in the current player's field. We need to check the opponent's field also.
+
+```javascript
+// Collect cards from current player's field and opponent's field.
+const activeCardIds = [...currentPlayer.field, ...opponentPlayer.field];
+// Find all valid triggers in the player's field.
+let triggers = activeCardIds.map(cardId => { // ...
+```
+
+### 3.1 Debugging
+
+Testing it out reveals that the *Acolyte of Bytes* is not drawing any cards. There is a bug somewhere.
+
+I start by looking at the top level of the event system.
+
+```javascript
+// file: src/GameLogic.js
+function playCard(currentState, ctx, cardId) {
+    // ...
+    let state = triggerEvent(state, ctx, 'play-card', {playerId, cardId, category: card.proto.category});
+    helper.updateState(state);
+    return helper.constructStateForPlayer(playerId, {hand, field, cpu, memory});
+    // ...
+}
+```
+
+`constructStateForPlayer` is overwriting the changes made by `triggerEvent`. It needs to be switched around.
+
+```javascript
+let state = helper.constructStateForPlayer(playerId, {hand, field, cpu, memory})
+return triggerEvent(state, ctx, 'play-card', {playerId, cardId, category: card.proto.category});
+```
+
+![](/img/dcg06.gif)
+
+Another bug. *Acolyte of Bytes* is causing the current player to draw a card. The enemy should be drawing a card.
+
+I could retrofit the `drawCard()` function to draw for any player, but that get's called by the client. Instead I'll create a new function.
+
+```javascript
+// file: src/GameLogic.js
+function drawCardForPlayer(currentState, ctx, playerId) {
+    let helper = new GameHelper(currentState, ctx);
+    let player = currentState[playerId];
+    // Add the last card in the player's deck to their hand.
+    let deckIndex = player.deck.length - 1;
+    let cardId = player.deck[deckIndex];
+    let hand = ImmutableArray.append(player.hand, cardId);
+    helper.updateCardLocation(cardId, {playerId, zone: 'hand'});
+    // Remove the last card in the deck.
+    let deck = ImmutableArray.removeAt(player.deck, deckIndex);
+    // Construct and return a new state object with our changes.
+    let state = helper.constructStateForPlayer(playerId, {hand, deck});
+    return triggerEvent(state, ctx, 'draw-card', {cardId, playerId});
+}
+
+// This one stays functionally the same.
+function drawCard(currentState, ctx) {
+    let playerId = "player_" + ctx.currentPlayer;
+    return drawCardForPlayer(currentState, ctx, playerId);
+}
+```
+
+The `draw-card` event becomes:
+
+```javascript
+// file: src/GameEvents.js
+'draw-card': (state, ctx, GameLogic, {cardId}, {target}) => {
+    const card = state.cards[cardId];
+    if (target.player === "self") {
+        return GameLogic.drawCardForPlayer(state, ctx, card.location.playerId);
+    } else if (target.player === "enemy") {
+        const opponentPlayerId = GameHelper.opponentFor(card.location.playerId);
+        return GameLogic.drawCardForPlayer(state, ctx, opponentPlayerId);
+    }
+}
+```
+
+I had to add an extra argument, the routine object, because the response object doesn't hold any information about the card's id. Without that I don't know who **self** or **enemy** refers to. This also requires some edits on the GameLogic side.
+
+```javascript
+// file: src/GameLogic.js
+// Execute each response.
+let state = currentState;
+triggers.forEach(trigger => {
+    trigger.response.forEach(response => {
+        let resultState = GameEvents[response.id](state, ctx, GameLogic, trigger, response);
+        if (resultState) {
+            state = resultState;
+        }
+    });
+})
+```
+
+I can remove that `.reduce()` call that was above.
+
+![](/img/dcg07.gif)
+
+This is exhibiting the behaviour I want!
+
+That concludes this digital card game series. You can view the source code for the project [here](https://bitbucket.org/locogame/cyberpunk-card-game/src/part03/).

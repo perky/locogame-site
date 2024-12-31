@@ -1,0 +1,705 @@
+---
+.title = "Digital Card Game - Part 2",
+.date = @date("2018-08-19T00:00:00"),
+.author = "Luke Perkin",
+.layout = "blog-page.shtml",
+.draft = false,
+.tags = [],
+---
+
+[]($section.id('intro'))
+This is part 2 to a series on making a digital card game in javascript.
+
+- [Part 1](/blog/digital-card-game-p01/)
+- **Part 2**
+- [Part 3](/blog/digital-card-game-p03/)
+
+[]($section.id('rest'))
+## 1. Card Prototypes
+
+At the moment, I have cards listed as a string. `cards: ["one", "two", "three", ...`
+
+Cards need to have more detail attached. I think JSON will be suitable for defining the card prototypes. The cards will need:
+
+- A machine readable ID.
+- A human readable title.
+- A category (program, hero, etc)
+- A CPU cost to play.
+- A Memory cost to keep in play.
+- It's strength (Hearthstone calls it HP).
+- It's Attack. I would like some programs to have multiple attacks, so this should be an array.
+
+```json
+// file: src/CardPrototypes.json
+[
+    {
+        "id": "cracker_01a",
+        "title": "Cracker v1.0",
+        "category": "program",
+        "cpu_cost": 1,
+        "memory_cost": 1,
+        "strength": 1,
+        "attacks": [
+            {"cpu_cost": 1, "damage": 2}
+        ]
+    },
+    {
+        "id": "cracker_01b",
+        "title": "Cracker v1.1",
+        "category": "program",
+        "cpu_cost": 1,
+        "memory_cost": 1,
+        "strength": 2,
+        "attacks": [
+            {"cpu_cost": 1, "damage": 1}
+        ]
+    },
+    {
+        "id": "cracker_02",
+        "title": "Cracker v2.0",
+        "category": "program",
+        "cpu_cost": 2,
+        "memory_cost": 1,
+        "strength": 2,
+        "attacks": [
+            {"cpu_cost": 1, "damage": 2},
+            {"cpu_cost": 2, "damage": 3}
+        ]
+    }
+]
+```
+
+Our game state will have an array of these card prototypes, but stats on cards often change during the game, so cards in the state will be their own object and reference the prototype object.
+
+```javascript
+// file: src/GameLogic.js
+import CardPrototypes from './CardPrototypes.json';
+function initialState(ctx, state) {
+    let cardId = 0;
+    let cards = [];
+    CardPrototypes.forEach(card => {
+				// Add 3 copies of each card to the game.
+        for (let duplicate = 0; duplicate < 3; duplicate++) {
+            cards.push({
+                id: cardId++,
+                proto: card
+            });
+        }
+    });
+    return state || {
+        cards, //...
+    }
+}
+```
+
+## 2. Resources - CPU
+
+A player can only play a card if they can afford it's CPU cost. Each player has their own CPU counter. At the start of a players turn the max CPU is increased by 1 and their CPU is refreshed.
+
+I'll introduce a new function `onTurnStart` which will eventually be called by [boardgame.io](http://boardgame.io) every time it starts a new turn. But for now we can test it manually.
+
+```javascript
+// file: src/GameLogic.js
+// NOTE: Don't forget to add maxCpu and cpu to the initial state.
+// Also don't forget to export this function :)
+function onTurnStart(currentState, ctx) {
+    let {currentPlayer, playerId} = getCurrentPlayer(currentState, ctx);
+    let maxCpu = currentPlayer.maxCpu + 1;
+    return constructStateForPlayer(currentState, playerId, {maxCpu, cpu: maxCpu});
+}
+
+// file: src/GameLogic.test.js
+// NOTE: Don't forget to update the mockState to include the new
+// card prototypes, maxCpu and cpu.
+// Also don't forget to import the onTurnStart function :)
+test('cpu refresh on turn start', () => {
+    const state_0 = initialState(mockCtx, mockState);
+    const state_1 = onTurnStart(state_0, mockCtx);
+    const state_2 = drawCard(state_1, mockCtx);
+    expect(state_2.player_0.cpu).toEqual(1);
+    expect(state_2.player_0.maxCpu).toEqual(1);
+    state_2.player_0.cpu = 0;
+    const state_3 = onTurnStart(state_2, mockCtx);
+    expect(state_3.player_0.cpu).toEqual(2);
+    expect(state_3.player_0.maxCpu).toEqual(2);
+});
+```
+
+I need to modify the `playCard` function to check if the player can afford the CPU cost and reduce their CPU counter.
+
+```javascript
+// file: src/GameLogic.js
+function playCard(currentState, ctx, cardId) {
+    let {currentPlayer, playerId} = getCurrentPlayer(currentState, ctx);
+    // Find the card in their hand.
+    let handIndex = currentPlayer.hand.indexOf(cardId);
+    let card = currentState.cards[cardId];
+    // Ensure the card is in the player's hand and they can afford it.
+    if (handIndex !== -1 && card && currentPlayer.cpu >= card.proto.cpu_cost) {
+        // Add the card to the player's field.
+        let field = ImmutableArray.append(currentPlayer.field, currentPlayer.hand[handIndex]);
+        // Remove the card from their hand.
+        let hand = ImmutableArray.removeAt(currentPlayer.hand, handIndex);
+        // Pay the CPU cost.
+        let cpu = currentPlayer.cpu - card.proto.cpu_cost;
+        // Construct and return a new state object with our changes.
+        return constructStateForPlayer(currentState, playerId, {hand, field, cpu});
+    } else {
+        // We return the unchanged state if we can't play a card.
+        return currentState;
+    }
+}
+
+// file: src/GameLogic.test.js
+test('cpu cost when playing a card', () => {
+    const state_0 = initialState(mockCtx, mockState);
+    const state_1 = onTurnStart(state_0, mockCtx);
+    const state_2 = drawCard(state_1, mockCtx);
+    const state_3 = playCard(state_2, mockCtx, 3);
+    expect(state_2.player_0.cpu).toEqual(1);
+    expect(state_2.player_0.maxCpu).toEqual(1);
+    expect(state_3.player_0.cpu).toEqual(0);
+    expect(state_3.player_0.maxCpu).toEqual(1);
+});
+test('prevent playing a card when not enough cpu', () => {
+    const state_0 = initialState(mockCtx, mockState);
+    const state_1 = onTurnStart(state_0, mockCtx);
+    const state_2 = drawCard(state_1, mockCtx);
+    state_2.player_0.cpu = 0;
+    const state_3 = playCard(state_2, mockCtx, 3);
+    expect(state_2.player_0.cpu).toEqual(0);
+    expect(state_2.player_0.maxCpu).toEqual(1);
+    expect(state_3.player_0.cpu).toEqual(0);
+    expect(state_3.player_0.maxCpu).toEqual(1);
+    expect(state_3.player_0.field).toEqual([]);
+    expect(state_3.player_0.hand).toEqual([3]);
+});
+```
+
+*Note: the previous test — playing a card — is now failing. I'll leave that as an exercise for you to figure out why.*
+
+### 2.1 Memory
+
+Memory is a secondary resource that is consumed while a program is on the field. It is not refreshed while at the end of a turn. When a program leaves the field, the player receives their memory back.
+
+I'll add it to the initial state. Netrunner uses 4 memory for the default, so let's use that.
+
+```javascript
+//...
+player_0: {
+    deck: [0, 1, 2, 3],
+    hand: [],
+    field: [],
+    maxCpu: 0,
+    cpu: 0,
+    memory: 4
+},
+//...
+function playCard(currentState, ctx, cardId) {
+    let {currentPlayer, playerId} = getCurrentPlayer(currentState, ctx);
+    // Find the card in their hand.
+    let handIndex = currentPlayer.hand.indexOf(cardId);
+    let card = currentState.cards[cardId];
+    // Ensure the card is in the player's hand and they can afford it.
+    if (handIndex !== -1 
+				&& card 
+				&& currentPlayer.cpu >= card.proto.cpu_cost 
+				&& currentPlayer.memory >= card.proto.memory_cost) {
+        // Add the card to the player's field.
+        let field = ImmutableArray.append(currentPlayer.field, currentPlayer.hand[handIndex]);
+        // Remove the card from their hand.
+        let hand = ImmutableArray.removeAt(currentPlayer.hand, handIndex);
+        // Pay the CPU cost.
+        let cpu = currentPlayer.cpu - card.proto.cpu_cost;
+        // Pay the Memory cost.
+        let memory = currentPlayer.memory - card.proto.memory_cost;
+        // Construct and return a new state object with our changes.
+        return constructStateForPlayer(currentState, playerId, {hand, field, cpu, memory});
+    } else {
+        // We return the unchanged state if we can't play a card.
+        return currentState;
+    }
+}
+```
+
+### 2.2 Boardgame.io
+
+Let's plug all our changes into boardgame.io. The framework provides with a bunch of functions such as *onTurnBegin*, *onTurnEnd* and predicate functions such as *endGameIf* and *endTurnIf*. It categorises these functions under 'flow'.
+
+```javascript
+// file: src/App.js
+import {initialState, drawCard, playCard, onTurnStart} from './GameLogic';
+const CyberpunkCardGame = Game({
+  setup: initialState,
+  moves: {
+    drawCard,
+    playCard
+  },
+  flow: {
+    onTurnBegin: onTurnStart // bgio calls it onTurnBegin, oops.
+  }
+});
+```
+
+![](/img/dcg02-3f50613b-731e-4a75-8c0a-c36eef0a8ed0.gif)
+
+## 3. Attacks
+
+I want attacks in the cyberpunk card game to work a little differently that attacks in Hearthstone. I don't know if my ideas for attacks will be fun or lead to interesting gameplay. But I can't find out until I implement it and test it out.
+
+- Every program has one or more 'Attacks'. I'm going to call these 'Routines'.
+- Unlike Hearthstone, a player chooses to run a specific Routine and then target something.
+- For example, a Routine might be: '1 cpu: Attack for 1 damage'.
+- Each Routine can only be run once per turn and Routines on a program that is 'booting', cannot be run.
+- Some Routine are 'triggered'. The player cannot run these, they run automatically in response to other events.
+- By default, Attacks can only target opponent programs/hero.
+
+I'll implement the most basic 'Routine': dealing damage.
+
+```javascript
+// file: src/GameLogic.js
+function attack(currentState, ctx, instigatorId, attackIndex, targetId) {
+    let { currentPlayer, playerId } = getCurrentPlayer(currentState, ctx);
+    let { opponentPlayer, opponentPlayerId } = getOpponentPlayer(currentState, ctx);
+    // Get the card that instigates the attack, and the attack target from the current state.
+    let instigator = currentState.cards[instigatorId];
+    let target = currentState.cards[targetId];
+    // Check that the cards are valid and in the correct zones.
+    let areCardsValid = instigator
+        && target
+        && currentPlayer.field.includes(instigatorId)
+        && opponentPlayer.field.includes(targetId)
+    if (areCardsValid) {
+        let attack = instigator.proto.attacks[attackIndex];
+        // Check if the player can afford the cpu cost of the attack and the attack has not already
+        // been used this turn.
+        let didUseAttack = (instigator.usedAttacks && instigator.usedAttacks.includes(attackIndex));
+        let canAttack = !didUseAttack && currentPlayer.cpu >= attack.cpu_cost;
+        if (canAttack) {
+            // Pay the CPU cost.
+            let cpu = currentPlayer.cpu - getAttackProp(instigator, attackIndex, 'cpu_cost');
+            // Reduce the target's strength.
+            let strength = getProp(target, 'strength') - getAttackProp(instigator, attackIndex, 'damage');
+            let nTarget = { ...target, strength };
+            // 'Use' up the attack for this turn.
+            let usedAttacks = instigator.usedAttacks || [];
+            usedAttacks = [...usedAttacks, attackIndex];
+            let nInstigator = { ...instigator, usedAttacks };
+            // Return the new state object.
+            let cards = ImmutableArray.multiSet(currentState.cards, [
+                { index: instigatorId, value: nInstigator },
+                { index: targetId, value: nTarget }
+            ]);
+            return {...constructStateForPlayer(currentState, playerId, {cpu}), cards};
+        }
+    }
+    return currentState;
+}
+```
+
+I've introduced some new functions in there:
+
+1. getOpponentPlayer: should return the opponent player's state.
+2. getAttackProp: should return a property of an attack (cpu_cost, damage, etc). We will need to take in to account that properties can be overridden.
+3. getProp: should return a property of a card (strength, cpu_cost, etc), taking in to account there may be overridden properties.
+4. ImmutableArray.multiSet: should return a new array, with the listed indices changed to the listed values.
+
+Implementing these new functions should be relatively trivial. This is getProp and getAttackProp:
+
+```javascript
+// file: src/GameLogic.js
+function getProp(card, propName) {
+    return card[propName] || card.proto[propName];
+}
+
+function getAttackProp(card, attackIndex, propName) {
+    let protoAttack = card.proto.attacks[attackIndex];
+    if (card.attacks) {
+        return card.attacks[attackIndex][propName] || protoAttack[propName]
+    } else {
+        return protoAttack[propName];
+    }
+}
+```
+
+Before I write the test, I've noticed the tests have some duplicated code for setting up the initial state. I'm going to refactor these into a function.
+
+```javascript
+// file: src/GameLogic.test.js
+function setupGame() {
+    const state_0 = initialState(mockCtx, mockState);
+    const state_1 = onTurnStart(state_0, mockCtx);
+    const state_2 = drawCard(state_1, mockCtx);
+    return state_2;
+}
+
+test('program attack', () => {
+    const state_0 = setupGame();
+    state_0.player_0.field = [0];
+    state_0.player_1.field = [1];
+    const instigatorId = 0;
+    const attackIndex = 0;
+    const targetId = 1;
+    const state_1 = attack(state_0, mockCtx, instigatorId, attackIndex, targetId);
+    const instigator = state_1.cards[instigatorId];
+    const target = state_1.cards[targetId];
+    expect(instigator.usedAttacks).toBeDefined();
+    expect(instigator.usedAttacks).toContain(attackIndex);
+    expect(target.strength).toEqual(target.proto.strength - instigator.proto.attacks[attackIndex].damage);
+});
+```
+
+There's still some functionality missing.
+
+- Program 'booting'.
+- Resetting used attacks.
+- Resetting program strength.
+
+Most of this logic will go in `onTurnStart`.
+
+```javascript
+// file: src/GameLogic.js
+function onTurnStart(currentState, ctx) {
+    let {currentPlayer, playerId} = getCurrentPlayer(currentState, ctx);
+    // Increment and restore the player's CPU.
+    let maxCpu = currentPlayer.maxCpu + 1;
+    // Iterate through all cards on the player's field.
+    let cardUpdates = currentPlayer.field.map(cardId => {
+        let currentCard = currentState.cards[cardId];
+        // Reset card strength, clear usedAttacks and finish booting.
+        let card = {
+            ...currentCard, 
+            usedAttacks: [],
+            strength: currentCard.proto.strength,
+            booted: true, 
+        };
+        return {index: cardId, value: card};
+    });
+    // Create a new cards array, with the updated cards.
+    let cards = ImmutableArray.multiSet(currentState.cards, cardUpdates);
+    // Return the new state object.
+    return {...constructStateForPlayer(currentState, playerId, {maxCpu, cpu: maxCpu}), cards};
+}
+
+function attack(/* ... */) {
+    // ...
+    // Also check the instigating program has booted.
+    let canAttack = !didUseAttack && instigator.booted && currentPlayer.cpu >= attack.cpu_cost;
+ 	// ...
+}
+```
+
+### 3.1 Trash
+
+Cards that reach a strength of 0 or below still remain on the field. Destroyed cards should be removed. I'll create a new zone called the **Trash**. In the initial state I add a `trash` array for each player, then the `attack()` function needs to check for all destroyed cards and move them. Better create a `trashCard()` function for this.
+
+```javascript
+// file: src/GameLogic.js
+// I have to know the location of the card to call this function.
+// For example: trashCard(state, ctx, "player_0", "hand", 3);
+// TODO: have the trashCard function find the card for us.
+function trashCard(currentState, ctx, playerId, zoneId, cardId) {
+    const card = currentState.cards[cardId];
+    const player = currentState[playerId];
+    const currentZone = player[zoneId];
+    const isCardValid = card && currentZone.includes(cardId);
+    if (isCardValid) {
+        // Add the card to the player's trash.
+        const trash = ImmutableArray.append(player.trash, cardId);
+        // Remove the card from it's current location.
+        let currentZoneIndex = currentZone.indexOf(cardId);
+        const zone = ImmutableArray.removeAt(currentZone, currentZoneIndex);
+        return constructStateForPlayer(currentState, playerId, {trash, [zoneId]: zone});
+    }
+    return currentState;
+}
+
+function attack(currentState, ctx, instigatorId, attackIndex, targetId) {
+    // ...
+    if (strength <= 0) {
+        currentState = trashCard(currentState, ctx, opponentPlayerId, "field", targetId);
+    }
+    // ...
+}
+```
+
+I also added a test for this. By this point — if you are following along — writing tests should start to be trivial. If you are still unfamiliar with writing tests, I recommend you read up of Test Driven Development (often written as TDD).
+
+## 4. Render Things
+
+Looking at the state object in the debug side-bar is getting tedious. I want to start rendering some cards. At some point it would be nice to render cards in a 3D environment, but for now I'm going to keep it simple and just use HTML and CSS. I'll also use React.
+
+I'll put the rendering logic in a separate file: GameRender.js
+
+```javascript
+// file: src/GameRender.js
+import React from 'react';
+
+// This is a React component.
+// If you've not used React before I recommend you read up on it.
+// TODO: Change the Renderer to use three.js
+class GameRender extends React.Component {
+    render() {
+        // Get state references.
+        const state = this.props.G;
+        const ctx = this.props.ctx;
+        const player = state["player_" + ctx.currentPlayer];
+        // Create an array of <div> for each card in the player hand.
+        // React allows JSX. I can combine HTML and Javascript in the same file.
+        const hand = player.hand.map(cardId => {
+            let card = state.cards[cardId];
+            return <div key={card.id} className={`card card-${card.proto.category}`}>
+                <p>{card.proto.title}</p>
+                <p>CPU: {card.cpu_cost || card.proto.cpu_cost}</p>
+                <p>Memory: {card.memory_cost || card.proto.memory_cost}</p>
+                <p>Strength: {card.strength || card.proto.strength}</p>
+            </div>;
+        });
+        // Return the outer <div>. React will expand {hand} for us.
+        return <div>{hand}</div>;
+    }
+}
+
+export default GameRender;
+```
+
+Now I need to tell [boardgame.io](http://boardgame.io) to use my renderer.
+
+```javascript
+// file: src/App.js
+import GameRender from './GameRender';
+const App = Client({
+  game: CyberpunkCardGame,
+  board: GameRender
+});
+```
+
+![](/img/Untitled-e1469ba1-7f30-44a7-9db8-e284eb2475ae.png)
+
+Having to draw cards every time the page reloads is annoying. They should be drawn automatically at the start of a turn anyway.
+
+```javascript
+function onTurnStart(currentState, ctx) {		
+    // ...
+    // Draw a card.
+    const state = drawCard(currentState, ctx);
+    // Return the new state object.
+    return {...constructStateForPlayer(state, playerId, {maxCpu, cpu: maxCpu}), cards};
+}
+```
+
+There are functions in GameLogic that would be helpful in GameRender. Things like *getCurrentPlayer* and *getProp*. All these functions require the *currentState* and *ctx* arguments too, I think it makes sense to move these functions to a helper class.
+
+```javascript
+// file: src/GameHelper.js
+class GameHelper {
+    constructor(currentState, ctx) {
+        this.state = currentState;
+        this.ctx = ctx
+    }
+    
+    // These are marked static because
+    // they don't need access to state or ctx.
+    static getProp(card, propName) {
+        return card[propName] || card.proto[propName];
+    }
+
+    static getAttackProp(card, attackIndex, propName) {
+        let protoAttack = card.proto.attacks[attackIndex];
+        if (card.attacks) {
+            return card.attacks[attackIndex][propName] || protoAttack[propName]
+        } else {
+            return protoAttack[propName];
+        }
+    }
+    getCurrentPlayer() {
+        let playerId = "player_" + this.ctx.currentPlayer;
+        let currentPlayer = this.state[playerId];
+        return {currentPlayer, playerId};
+    }
+
+    getOpponentPlayer() {
+        let opponentPlayerId = "player_" + ((this.ctx.currentPlayer === "0") ? "1" : "0");
+        let opponentPlayer = this.state[opponentPlayerId];
+        return {opponentPlayer, opponentPlayerId};
+    }
+
+    updateState(state) {
+        this.state = state;
+    }
+
+    constructStateForPlayer(playerId, playerState) {
+        let newPlayerState = Object.assign({}, this.state[playerId], playerState);
+        return {...this.state, [playerId]: newPlayerState};
+    }
+}
+
+export default GameHelper;
+```
+
+Our GameRender class can now be updated to this:
+
+```javascript
+class GameRender extends React.Component {
+    // Split the card rendering into it's own function.
+    // I've also added buttons for the attacks.
+    renderCard(cardId) {
+        let {getProp, getAttackProp} = GameHelper;
+        let card = this.props.G.cards[cardId];
+        let attacks = card.proto.attacks.map((attack, index) => {
+            let cpuCost = getAttackProp(card, index, 'cpu_cost');
+            let damage = getAttackProp(card, index, 'damage');
+            return <div key={index}><button>{cpuCost} CPU: Deal {damage} damage.</button></div>;
+        });
+        let cpuCost = getProp(card, 'cpu_cost');
+        let memoryCost = getProp(card, 'memory_cost');
+        let strength = getProp(card, 'strength');
+        return <div key={card.id} className={`card card-${card.proto.category}`}>
+            <p>{card.proto.title}</p>
+            <p>CPU: {cpuCost}</p>
+            <p>Memory: {memoryCost}</p>
+            <p>Strength: {strength}</p>
+            {attacks}
+        </div>;
+    }
+
+    render() {
+        // Get state references.
+        const state = this.props.G;
+        const ctx = this.props.ctx;
+        const helper = this.helper = new GameHelper(state, ctx);
+        const {currentPlayer} = helper.getCurrentPlayer();
+        const {opponentPlayer} = helper.getOpponentPlayer();
+        
+        // Create an array of <div> for each card in the player hand.
+        // React allows JSX. I can combine HTML and Javascript in the same file.
+        const playerHand = currentPlayer.hand.map(this.renderCard.bind(this));
+        const opponentHand = opponentPlayer.hand.map(this.renderCard.bind(this));
+        // Return the outer <div>. React will expand {hand} for us.
+        return <div>
+            <div id="hand-player">{playerHand}</div>
+            <div id="hand-opponent">{opponentHand}</div>
+        </div>;
+    }
+}
+```
+
+With a sprinkle of CSS it looks like this:
+
+![](/img/dcg03-e51db039-2a95-4d50-948f-50d2f5db3d1e.gif)
+
+### 4.1 Attack buttons
+
+To end this article, I will have the attack buttons functioning. Everything is still rough and ready so I will simply show a 'target' button on the opponent programs once you have initiated an Attack.
+
+```javascript
+// file: src/GameRender.js
+// The constructor method gets called when the GameRender class
+// is instantiated.
+constructor(props) {
+    super(props);
+    this.state = {};
+    // Why .bind? One of Javascript's many pitfalls.
+    // When you pass a function to a React callback,
+    // the function is called but it loses it's "this" reference
+    // to the instantiated class. The .bind fixes that.
+    this.prepareAttack = this.prepareAttack.bind(this);
+    this.attack = this.attack.bind(this);
+    this.cancelAttack = this.cancelAttack.bind(this);
+    this.playCard = this.playCard.bind(this);
+}
+
+// Store the instigator and attack index.
+// We need to wait until the user has selected their target.
+prepareAttack(instigatorId, attackIndex) {
+    this.setState({
+        currentAttack: {instigatorId, attackIndex},
+    });
+}
+
+attack(instigatorId, attackIndex, targetId) {
+    this.props.moves.attack(instigatorId, attackIndex, targetId);
+    this.setState({currentAttack: null});
+}
+
+playCard(cardId) {
+    this.props.moves.playCard(cardId);
+}
+
+cancelAttack() {
+    this.setState({currentAttack: null});
+}
+```
+
+There's a list of things I could do with adding to the render functions.
+
+- Draw the friendly and opponent fields.
+- Hide the cards in the opponent's hands.
+- Display a button to play a card.
+- Display a button to target a card.
+- Display a button to cancel an attack.
+- Disable buttons for used attacks.
+- Grey out cards that are 'Booting'.
+
+```javascript
+// I've added a zone argument, so it can render differently
+// depending if it is in the hand or the field.
+renderCard(cardId, zone) {
+    // ...
+    let attacks = card.proto.attacks.map((attack, index) => {
+        // ...
+        // Disable buttons for used attacks.
+        let isDisabled = (card.usedAttacks && card.usedAttacks.includes(index)) || !card.booted;
+        let onClick = () => this.prepareAttack(card.id, index);
+        return <div key={index}>
+            <button onClick={onClick} disabled={isDisabled}>{cpuCost} CPU: Deal {damage} damage.</button>
+        </div>;
+    });
+    // ...
+    let additionalButtons = [];
+    if (this.state.currentAttack && zone !== 'hand') {
+        // Display a button to cancel an attack.
+        if (card.id === this.state.currentAttack.instigatorId) {
+            additionalButtons.push(<button key="cancel-attack" onClick={this.cancelAttack}>Cancel Attack</button>);
+        } else {
+            // Display a button to target a card.
+            let onClick = () => {
+                this.attack(this.state.currentAttack.instigatorId, this.state.currentAttack.attackIndex, card.id);
+            };
+            additionalButtons.push(<button key="target" onClick={onClick}>Target</button>);
+        }
+    }
+    // Display a play card button.
+    if (zone === 'hand') {
+        let onClick = () => this.playCard(card.id);
+        additionalButtons.push(<button key="play" onClick={onClick}>Play</button>);
+    }
+    // Add the additional buttons as well as a call to grey out booting cards.
+    return <div key={card.id} className={`card card-${card.proto.category} card-${card.booted ? 'booted' : 'unbooted'}`}>
+        { card.booted || zone === 'hand' ? null : 'booting...'}
+        <p>{card.proto.title} [#{card.id}]</p>
+        <p>CPU: {cpuCost}</p>
+        <p>Memory: {memoryCost}</p>
+        <p>Strength: {strength}</p>
+        {attacks}
+        {additionalButtons}
+    </div>;
+}
+
+// Display a face-down card.
+renderHiddenCard(index) {
+    return <div key={index} className="card card-hidden"></div>
+}
+
+render() {
+    // ...
+    const playerHand = currentPlayer.hand.map(c => this.renderCard(c, 'hand'));
+    const playerField = currentPlayer.field.map(c => this.renderCard(c, 'field'));
+    const opponentField = opponentPlayer.field.map(c => this.renderCard(c, 'field'));
+    const opponentHand = opponentPlayer.hand.map(c => this.renderHiddenCard(c, 'hand'));
+}
+```
+
+![](/img/dcg-part02-03.gif)
+
+In part 3 I will start working on triggered actions, actions that are automatically triggered by events in the game, such as drawing a card and taking damage. I'll create a system that allows these effects to stack on top of each other and we'll see how complicated behaviours can emerge.

@@ -1,0 +1,21 @@
+---
+.title = "Blog",
+.date = @date("2020-07-06T00:00:00"),
+.author = "Luke Perkin",
+.layout = "blog.shtml",
+.alternatives = [{
+  .name = "rss",
+  .layout = "blog.xml",
+  .output = "blog.xml",
+}],
+.draft = false,
+--- 
+
+[]($section.id('about'))
+## Blog
+My own written articles on game design, programming, and tabletop games.
+
+You can [subscribe to this page via RSS](http://localhost:1990/blog.xml).
+
+[]($section.id('posts'))
+## Posts

@@ -1,0 +1,439 @@
+---
+.title = "Simulating Board Games",
+.date = @date("2018-08-22T00:00:00"),
+.author = "Luke Perkin",
+.layout = "blog-page.shtml",
+.draft = false,
+.tags = [],
+---
+
+[]($section.id('intro'))
+When you're designing games, you eventually come across the field of probabilities and combinatorics.
+
+*Combinatorics is a field of mathematics that deals with the possible combinations and permutations of a set of objects. For a game designer, this could be about the permutations of a deck of cards, the rolls of dice.*
+
+Having any level of understanding in this topic can only help you as a designer. However sometimes you just an answer to a certain question — *How likely is a draw? How do I make it easier for one team to win?* — and not want to start studying maths for the next week.
+
+Here a present an approach to these problems via brute-force simulations. You will find this of limited value if you are not a programmer, but hopefully it would at least inspire you.
+
+[]($section.id('rest'))
+## The Board Game
+
+I've used the simulation approach recently for my social deception game 'Blaggards'.
+
+![Blaggards Logo](/img/blaggards_logo.png)
+
+Blaggards is a team game. The two teams, Pirates and Blaggards, are competing each other to collect the most doubloons. The twist is that if you are on the Pirate team, you don't know which team the other players are on. Not only do you have to co-operate to gain loot for your own team, you have to figure out who to co-operate with. The reverse can't be said for the Blaggards, they know exactly who's on which team, the downside is there's a lot fewer players on the Blaggards side than there is the Pirates.
+
+![](/img/blaggards_piratecard.jpg)
+
+The Pirate team earns doubloons by unlocking treasure chests, there are six of them on the map. The Blaggard team earns doubloons by keeping chests locked, the loot belongs to the Blaggards by default.
+
+![large_map_design_preview](/img/large_map_design_preview.jpg)
+
+## Design Goals
+
+I wanted to introduce a design change and I had a few design goals.
+
+- I want the chance of a tie to as low as possible. Ties aren't fun.
+- I want the odds of the Pirates winning to be slightly stacked against the Blaggards. Winning on the Blaggard side should be an achievement.
+- I don't want **just** the number of chests being opened to be deciding factor of which team wins.
+
+In another social deception game called The Resistance, the good team wins if they succeed at three missions. For Blaggards I want more variance, a slim chance of the Pirates winning even if they only open two chests, and a slim chance of the Blaggards winning if the Pirates open four chests. I introduce this variance by adding different denominations of loot inside chests. One chest could contain three doubloons, another could contain nine.
+
+How will I know how this design change affects the probabilities of wins and losses? I could play 50 to 100 games or so, but seeing as each game of Blaggards takes about 40 minutes, that is a lot of testing.
+
+For my design change, each bit of loot is going to be on a cardboard token (also known as a chit). I'm not entirely sure what the denominations are going to be yet, but I do know I want the simplest token: a single doubloon. I also want to keep a special token: The Cursed Skull.
+
+In the current design, the cursed skull is worthless, but if the Pirates reveal it, everyone player has to discard a key *(Players hold a hand of cards that represent the keys used to unlock chests)*.
+
+## Programming a Simulation
+
+When I start programming what is essentially a 'disposable program', I consider two options: JavaScript or Python. Both are great for making little tools and utilities to help you in your production pipeline. I'm not super familiar with Python but I know JavaScript pretty well, plus if I ever wanted to add some sort of Graphical User Interface, I can use HTML too. But in this case, I'm keeping it command line driven.
+
+I like to start with DATA first. There are six chests in the game, I want each chest to hold three chest tokens (arbitrary design decision, working in threes just feels right). There are two chests that are a lot more difficult to open, so I will chuck in an extra loot token for each of them. That brings the total to 20 loot tokens.
+
+```js
+// 0's represent cursed skulls.
+const LOOT = [
+	0, 0, 0, 1, 1,
+	1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1,
+];
+```
+
+The rulebook will say to shuffle these tokens before placing them in the treasure chests, so I'm going to need to implement a shuffling algorithm. You can't go wrong with [The Fisher Yates Shuffle algorithm](https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle).
+
+```c
+function randomInt( max ) {
+    return Math.floor(Math.random() * max);
+}
+
+function shuffle( array ) {
+    var currentIndex = array.length;
+    var tempValue;
+    var randomIndex;
+    // While there remain elements to shuffle...
+    while (currentIndex > 0) {
+      // Pick a remaining element.
+      randomIndex = randomInt(currentIndex--);
+      // Swap it with the current element.
+      tempValue = array[currentIndex];
+      array[currentIndex] = array[randomIndex];
+      array[randomIndex] = tempValue;
+    }
+    return array;
+}
+```
+
+Noice.
+
+Now I will just test that out, make sure I didn't miss anything obvious.
+
+```c
+function simulation() {
+	// Clone the array then shuffle.
+	const loot = [...LOOT];
+	const shuffledLoot = shuffle(loot);
+	return shuffledLoot;
+}
+
+console.log(simulation());
+
+// CONSOLE OUTPUT:
+[ 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1 ]
+```
+
+Looking well shuffled to me.
+
+I know need to put three in each chest, except for chests 5 and 6, they take four.
+
+```c
+function simulation() {
+	// Clone the array then shuffle.
+	const loot = [...LOOT];
+	const shuffledLoot = shuffle(loot);
+	const chests = [];
+	for (let chestIndex = 0; chestIndex < 6; chestIndex++) {
+		chests[chestIndex] = [];
+		const lootCount = (chestIndex < 4) ? 3 : 4;
+		for (let lootIndex = 0; lootIndex < lootCount; lootIndex++) {
+			chests[chestIndex][lootIndex] = shuffledLoot.pop();		
+		}
+	}
+	return chests;
+}
+
+// CONSOLE OUTPUT
+[ [ 1, 1, 1 ],
+  [ 0, 1, 0 ],
+  [ 1, 1, 1 ],
+  [ 1, 1, 1 ],
+  [ 1, 1, 1, 1 ],
+  [ 1, 0, 1, 1 ] ]
+```
+
+Now comes some **hand-waiving**. I'm not going to simulate all the intricacies of human behaviour. At the end of the day (or the end of the game), the pirates have opened zero to five chests (not six though, the game ends once five have been opened). For this simulation that's all I care about.
+
+```c
+// I've added an argument to specifiy how many chests
+// the pirate's will open in this simulation.
+function simulation( openedChests ) {
+	// Clone the array then shuffle.
+	const loot = [...LOOT];
+	shuffle(loot);
+	const chests = [];
+	for (let chestIndex = 0; chestIndex < 6; chestIndex++) {
+		chests[chestIndex] = [];
+		const lootCount = (chestIndex < 4) ? 3 : 4;
+		for (let lootIndex = 0; lootIndex < lootCount; lootIndex++) {
+			chests[chestIndex][lootIndex] = loot.pop();		
+		}
+	}
+	// Which chests the pirates open should be random.
+	shuffle(chests);
+	const pirateLoot = [];
+	for (let i = 0; i < openedChests; i++) {
+		const chest = chests.pop();
+		pirateLoot.push(...chest);
+  	}
+	const blaggardLoot = [];
+	while (chests.length > 0) {
+		const chest = chests.pop();
+		blaggardLoot.push(...chest);
+	}
+	return {pirateLoot, blaggardLoot};
+}
+
+console.log(simulation(3));
+
+// CONSOLE OUTPUT
+{ pirateLoot: [ 1, 0, 1, 1, 1, 1, 1, 1, 1, 1 ],
+  blaggardLoot: [ 1, 0, 1, 1, 1, 1, 0, 1, 1, 1 ] }
+```
+
+To figure out which team won, I just need to sum up each list and compare the results. Running a single simulation doesn't really help, running **thousands** of them will.
+
+```c
+// Does what it says on the tin.
+function sum( array ) {
+    return array.reduce((sum, value) => sum + value, 0);
+}
+
+function main() {
+	const openedChests = 3;
+	const numTrials = 1000000; // One million should do it.
+	let pirateWins = 0;
+	let blaggardWins = 0;
+	let ties = 0;
+	for (let i = 0; i < numTrials; i++) {
+		const result = simulation(openedChests);
+		const pirateScore = sum(result.pirateLoot);
+		const blaggardScore = sum(result.blaggardLoot);
+		if (pirateScore > blaggardScore) {
+			pirateWins++;
+		} else if (blaggardScore > pirateScore) {
+			blaggardWins++;
+		} else {
+			ties++;
+		}
+	}
+	return {pirateWins, blaggardWins, ties};
+}
+
+console.log(main());
+
+// CONSOLE OUTPUT
+{ pirateWins: 499713, blaggardWins: 500287, ties: 0 }
+```
+
+Well the results are in. I am immediately drawn to the fact there are zero ties! What are the chances?? *(trick question, it's 0%)*.
+
+I wonder if this is true if the pirates open other quantities of chests?
+
+```json
+function main(openedChests = 1) {
+	// ...
+	return {openedChests, pirateWins, blaggardWins, ties};
+}
+
+console.log(main(1));
+console.log(main(2));
+console.log(main(3));
+console.log(main(4));
+console.log(main(5));
+
+// CONSOLE OUTPUT
+{ openedChests: 1, pirateWins: 0, blaggardWins: 1000000, ties: 0 }
+{ openedChests: 2, pirateWins: 0, blaggardWins: 1000000, ties: 0 }
+{ openedChests: 3,
+  pirateWins: 501031,
+  blaggardWins: 498969,
+  ties: 0 }
+{ openedChests: 4, pirateWins: 1000000, blaggardWins: 0, ties: 0 }
+{ openedChests: 5, pirateWins: 1000000, blaggardWins: 0, ties: 0 }
+```
+
+Remember when I said one of my design goals was not wanting the number of chests being opened to be the only deciding factor of which team wins. Well we can clearly see here that the Pirates only win if they open three or more. I can start tweaking my list of LOOT and seeing how that affects the numbers. What happens if I just chuck in a couple of **really valuable** loot in there.
+
+```js
+const LOOT = [
+	0, 0, 0, 1, 1,
+	1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1,
+	1, 1, 1, 10, 10,
+];
+
+// CONSOLE OUTPUT
+{ openedChests: 1,
+  pirateWins: 20802,
+  blaggardWins: 979198,
+  ties: 0 }
+{ openedChests: 2,
+  pirateWins: 100561,
+  blaggardWins: 899439,
+  ties: 0 }
+{ openedChests: 3,
+  pirateWins: 499485,
+  blaggardWins: 500515,
+  ties: 0 }
+{ openedChests: 4,
+  pirateWins: 899591,
+  blaggardWins: 100409,
+  ties: 0 }
+{ openedChests: 5,
+  pirateWins: 978927,
+  blaggardWins: 21073,
+  ties: 0 }
+```
+
+This is kind of interesting. I'm amazed at how there are still no ties. The console output is a little hard to parse, and running a million simulations (times five!) is a little slow. I'm going to print out the percentages instead, and drop it to one hundred thousand simulations.
+
+```js
+function main(openedChests = 1) {
+	const numTrials = 100000; // One hundred thousand should do it.
+	let pirateWins = 0;
+	let blaggardWins = 0;
+	let ties = 0;
+	for (let i = 0; i < numTrials; i++) {
+		const result = simulation(openedChests);
+		const pirateScore = sum(result.pirateLoot);
+		const blaggardScore = sum(result.blaggardLoot);
+		if (pirateScore > blaggardScore) {
+			pirateWins++;
+		} else if (blaggardScore > pirateScore) {
+			blaggardWins++;
+		} else {
+			ties++;
+		}
+	}
+	return `${openedChests}
+  	pirates: ${Math.round(pirateWins/1000)}%
+  	blaggards: ${Math.round(blaggardWins/1000)}%
+  	ties: ${Math.round(ties/1000)}`;
+}
+
+// CONSOLE OUTPUT
+1
+    pirates: 2%
+    blaggards: 98%
+    ties: 0
+2
+    pirates: 10%
+    blaggards: 90%
+    ties: 0
+3
+    pirates: 50%
+    blaggards: 50%
+    ties: 0
+4
+    pirates: 90%
+    blaggards: 10%
+    ties: 0
+5
+    pirates: 98%
+    blaggards: 2%
+    ties: 0
+```
+
+I want to add some uncertainty to how many cursed skulls there are. I can do this by adding more cursed skulls to the LOOT list, as only 20 of them get placed in chests there will be a varying amount of skulls from game to game.
+
+```js
+const LOOT = [
+	0, 0, 0, 1, 1,
+	1, 1, 1, 1, 1,
+	1, 1, 1, 1, 1,
+  	1, 1, 1, 10, 10,
+  	0, 0 // extra skulls.
+];
+
+// CONSOLE OUTPUT
+1
+    pirates: 2%
+    blaggards: 97%
+    ties: 1%
+2
+    pirates: 14%
+    blaggards: 86%
+    ties: 0%
+3
+    pirates: 47%
+    blaggards: 47%
+    ties: 6%
+4
+    pirates: 86%
+    blaggards: 14%
+    ties: 0%
+5
+    pirates: 97%
+    blaggards: 2%
+    ties: 1%
+```
+
+That introduced the possibility of ties, but the largest chance is 3%, and that is when half the chests are opened, so I am ok with that. To stack the odds slightly, I could have the pirate team win by default in the case of a tie. Wording that in the rulebook might seem weird though I would probably word that rule as
+
+> "The Blaggards win the game if their total value of loot is greater than the Pirate's."
+
+Giving a slight edge to the Pirate's was one of my design goals, so I can code that in.
+
+```
+function main(openedChests = 1) {
+	// ...
+	for (let i = 0; i < numTrials; i++) {
+		// ...
+		if (pirateScore >= blaggardScore) {
+			pirateWins++;
+		} else {
+			blaggardWins++;
+		}
+	}
+  return `${openedChests}
+    pirates: ${Math.round(pirateWins/1000)}%
+    blaggards: ${Math.round(blaggardWins/1000)}%`;
+}
+
+// CONSOLE OUTPUT
+1
+    pirates: 3%
+    blaggards: 97%
+2
+    pirates: 14%
+    blaggards: 86%
+3
+    pirates: 53%
+    blaggards: 47%
+4
+    pirates: 86%
+    blaggards: 14%
+5
+    pirates: 98%
+    blaggards: 2%
+```
+
+The win/lose probabilities fit my design goals pretty well. However, during this process I've realised I have a new design goal: to have a variety of loot types. At the moment I've got three.
+
+- Single doubloon.
+- Ten doubloons.
+- Cursed skull.
+
+Chances are, most chests will contain 3x single doubloon. I want to swap out a few of those ones with other denominations and see the result.
+
+```
+const LOOT = [
+	0, 0, 0, 1, 1,
+	1, 1, 1, 1, 1,
+	1, 2, 2, 2, 2,
+  3, 3, 3, 10, 10,
+  0, 0 // extra skulls.
+];
+```
+
+I've added 4x two doubloons and 3x three doubloons. There is still a total of 22 tokens.
+
+```
+// CONSOLE OUTPUT
+1
+    pirates: 1% (-2%)
+    blaggards: 99% (+2%)
+2
+    pirates: 13% (-1%)
+    blaggards: 87% (+1%)
+3
+    pirates: 52% (-1%)
+    blaggards: 48% (+1%)
+4
+    pirates: 88% (+2%)
+    blaggards: 12% (-2%)
+5
+    pirates: 99% (+2%)
+    blaggards: 1% (-1%)
+```
+
+I've added the differences from the last results in parenthesis. They're all minor shifts.
+
+## Debrief
+
+In just the space of an hour, I've simulated millions of sessions of my game. Through a series of incremental tweaks to the rules and values I've discovered the results that fit my design goals.
+
+Even after all that, I would take this approach with a grain of salt. This is not a silver bullet to balancing your game. This is a single lens you can use to approach game design, alongside all your other tools of design. If a playtesting session contradicted my choices I made due to this method I wouldn't hesitate to change them. After all, games are about **human experiences**, and this simulation is void of them.

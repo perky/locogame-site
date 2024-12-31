@@ -1,0 +1,21 @@
+<rss version="2.0">
+ <channel>
+  <title>Luke Perkin's Blog</title>
+  <link>https://locogame.co.uk/blog</link>
+  <description>Luke's written articles on game design, programming, and tabletop games.</description>
+  <generator>Zine -- https://zine-ssg.io</generator>
+  <language>en-uk</language>
+  <lastBuildDate :text="$build.generated.formatHTTP()"></lastBuildDate>
+  <ctx :loop="$page.subpages()">
+  <item>
+     <pubDate 
+      :text="$loop.it.date.formatHTTP()"
+     ></pubDate>
+     <link :text="$site.host_url.addPath($loop.it.link())"></link>
+     <guid :text="$site.host_url.addPath($loop.it.link())"></guid>
+     <title :text="$loop.it.title"></title>
+     <description :text="$loop.it.contentSection('intro')"></description>
+    </item>
+  </ctx>
+ </channel>
+</rss>

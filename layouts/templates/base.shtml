@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+  <head id="head">
+    <meta charset="UTF-8">
+    <meta name="description" content="Luke Pekin: Senior Technical Designer">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="$page.title.suffix(' | Luke Perkin')">
+    <meta property="og:image" content="$site.host_url.addPath($site.asset('preview.png').link())">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title id="title">
+      <super>
+      - Luke Perkin
+    </title>
+    <link rel="stylesheet" type="text/css" href="$site.asset('fonts.css').link()">
+    <link rel="stylesheet" type="text/css" href="$site.asset('fira_code.css').link()">
+    <link rel="stylesheet" type="text/css" href="$site.asset('style.css').link()">
+    <link rel="stylesheet" type="text/css" href="$site.asset('highlight.css').link()">
+    <super>
+  </head>
+  <body>
+    <nav id="menu" class="centered">
+      <div class="inner">
+        <div class="title_name">
+          Luke Perkin<br>
+          Technical Designer
+        </div>
+        <div class="links">
+          <a href="/">About Me</a>
+          •
+          <a href="$site.page('blog').link()">Blog</a>
+        </div>
+      </div>
+    </nav>
+    <div id="content">
+      <super>
+    </div>
+    <footer>
+      <div class="inner">
+        <div class="inner2">Luke Perkin 2024 • Generated with
+          <a href="https://zine-ssg.io/">Zine</a>
+          @
+          <span :text="$build.generated.format('Jan 02, 2006 15:04')"></span></div>
+      </div>
+    </footer>
+  </body>
+</html>

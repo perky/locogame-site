@@ -1,0 +1,69 @@
+<extend template="base.shtml">
+<title id="title" :text="$page.title"></title>
+<head id="head">
+  <style>
+    #profile {
+			margin-top: 0.5rem;
+			display: flex;
+			flex-flow: row;
+			justify-content: space-between;
+			align-items: center;
+		}
+
+		#profile .pic {
+			width: 33%;
+			padding: 0.5rem;
+			
+		}
+
+		#profile .titles {
+		}
+
+		.title,
+		.subtitle {
+			margin-bottom: 0;
+		}
+
+		.subtitle,
+		.tagline {
+			font-weight: 100;
+			margin-top: 0.5rem;
+		}
+
+		.title {
+			font-family: "Major Mono Display", serif;
+			font-size: 3rem;
+			font-weight: 400;
+		}
+
+		.subtitle {
+			font-family: 'Poppins';
+			font-size: 0.75rem;
+		}
+
+		.tagline {
+			font-size: 1rem;
+			font-style: italic;
+			border-top: 1px solid #ccc;
+			border-bottom: 1px solid #ccc;
+			padding: 2px 5px;
+			text-align: center;
+		}
+  </style>
+</head>
+<div id="content">
+  <div id="profile">
+    <div class="titles">
+      <h1 class="title">Luke Perkin</h1>
+      <h2 class="subtitle">Senior Technical Designer @ Nequinox Studios<br>Game Design Tutor @ Futureworks</h2>
+      <h2 class="subtitle">Based in North West UK</h2>
+      <h2 class="subtitle">
+        <a href="mailto:luke@locogame.co.uk">luke@locogame.co.uk</a><br>
+        <a href="https://linkedin.com/in/lukeperkin/">LinkedIn</a><br>
+        <a href="https://github.com/perky">GitHub</a>
+      </h2>
+    </div>
+    <img class="pic" src="$site.asset('img/lukeperkin.png').link()">
+  </div>
+  <div id="page" :html="$page.content()"></div>
+</div>
